@@ -2,4 +2,7 @@
 *venv*
 
 # The lists
-lists/
+Tasks/
+
+# Pycache
+__pycache__

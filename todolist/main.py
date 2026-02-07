@@ -1,7 +1,7 @@
 import sys
 from PySide6.QtWidgets import QApplication
 from src.window import MainWindow
-from src.Config import Config
+from src.system.Config import Config
 from pathlib import Path
 
 config = Config()

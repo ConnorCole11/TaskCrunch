@@ -3,11 +3,11 @@ from PySide6.QtWidgets import (
     QTreeWidgetItem, QPushButton, QLineEdit, QMessageBox,
     QScrollArea
 )
-from .task_widgets import TaskItem
+from src.taskView.task_widgets import TaskItem
 from PySide6.QtWidgets import QWidget, QHBoxLayout, QSplitter, QPushButton, QVBoxLayout
-from src.sidebar import ProjectTree
-from src.tasks_view import TaskEditor
-from src.filesystem import load_tasks, save_tasks
+from src.projectTree.sidebar import ProjectTree
+from src.taskView.tasks_view import TaskEditor
+from src.system.filesystem import load_tasks, save_tasks
 
 
 class MainWindow(QWidget):

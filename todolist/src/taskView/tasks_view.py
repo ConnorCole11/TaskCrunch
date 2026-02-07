@@ -7,8 +7,8 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt
 
-from src.task_widgets import TaskItem
-from src.filesystem import save_tasks
+from src.taskView.task_widgets import TaskItem
+from src.system.filesystem import save_tasks
 
 
 class TaskEditor(QWidget):
