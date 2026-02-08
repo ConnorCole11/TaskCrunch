@@ -1,25 +1,33 @@
 from pathlib import Path
+
 from PySide6.QtWidgets import (
     QWidget,
     QVBoxLayout,
     QLineEdit,
     QScrollArea,
 )
-from PySide6.QtCore import Qt
 
 from src.taskView.task_widgets import TaskItem
-from src.system.filesystem import save_tasks
+from src.taskView.Task import Task
+from src.taskView.task_createView import TaskCreateDialog
+from src.system.filesystem import load_tasks, save_tasks
 
 
 class TaskEditor(QWidget):
+    """
+    Central task view.
+    Owns the in-memory Task objects for the currently selected folder.
+    """
+
     def __init__(self):
         super().__init__()
 
         self.current_path: Path | None = None
+        self.tasks: list[Task] = []
 
         layout = QVBoxLayout(self)
 
-        # Scrollable task list
+        # --- Scrollable task list ---
         self.task_container = QWidget()
         self.task_layout = QVBoxLayout(self.task_container)
         self.task_layout.addStretch()
@@ -30,32 +38,85 @@ class TaskEditor(QWidget):
 
         layout.addWidget(scroll)
 
-        # Add-task input
+        # --- Add-task input ---
         self.new_task_input = QLineEdit()
         self.new_task_input.setPlaceholderText("Add a new task…")
-        self.new_task_input.returnPressed.connect(self.add_task)
+        self.new_task_input.returnPressed.connect(self.add_task_from_input)
         layout.addWidget(self.new_task_input)
 
-    # -------- Public API used by MainWindow --------
+    # ------------------------------------------------------------------
+    # Public API (called by MainWindow)
+    # ------------------------------------------------------------------
 
-    def load_text(self, text: str, path: Path):
-        """Load tasks for the selected project/subproject"""
+    def load_tasks_from_path(self, path: Path):
+        """Load tasks for the selected project/subproject."""
         self.current_path = path
         self.clear_tasks()
 
-        for line in text.splitlines():
-            self.add_task(line, save=False)
+        data = load_tasks(path) or {}
+        self.tasks = [
+            Task.from_dict(task_data)
+            for task_data in data.get("tasks", [])
+        ]
 
-    def toPlainText(self) -> str:
-        """Return tasks as newline-separated text"""
-        tasks = []
-        for i in range(self.task_layout.count()):
-            widget = self.task_layout.itemAt(i).widget()
-            if isinstance(widget, TaskItem):
-                tasks.append(widget.checkbox.text())
-        return "\n".join(tasks)
+        for task in self.tasks:
+            self.add_task_widget(task)
 
-    # -------- Internal helpers --------
+    # ------------------------------------------------------------------
+    # Task creation / removal / editing
+    # ------------------------------------------------------------------
+
+    def add_task_from_input(self):
+        """Quick-create a task using only the name."""
+        if not self.current_path:
+            return
+
+        name = self.new_task_input.text().strip()
+        if not name:
+            return
+
+        task = Task(name=name)
+        self.tasks.append(task)
+
+        self.add_task_widget(task)
+        self.new_task_input.clear()
+        self.save()
+
+    def remove_task(self, task: Task):
+        if task in self.tasks:
+            self.tasks.remove(task)
+            self.refresh_view()
+            self.save()
+
+    def edit_task(self, task: Task):
+        """Open dialog to edit an existing task."""
+        dialog = TaskCreateDialog(task, self)
+
+        if dialog.exec():
+            # task is already mutated
+            self.refresh_view()
+            self.save()
+
+    # ------------------------------------------------------------------
+    # UI helpers
+    # ------------------------------------------------------------------
+
+    def add_task_widget(self, task: Task):
+        item = TaskItem(task)
+
+        item.remove_requested.connect(self.remove_task)
+        item.edit_requested.connect(self.edit_task)
+
+        # insert above the stretch
+        self.task_layout.insertWidget(
+            self.task_layout.count() - 1,
+            item,
+        )
+
+    def refresh_view(self):
+        self.clear_tasks()
+        for task in self.tasks:
+            self.add_task_widget(task)
 
     def clear_tasks(self):
         while self.task_layout.count() > 1:
@@ -64,45 +125,15 @@ class TaskEditor(QWidget):
             if widget:
                 widget.deleteLater()
 
-    def add_task(self, text=None, save=True):
+    # ------------------------------------------------------------------
+    # Persistence
+    # ------------------------------------------------------------------
+
+    def save(self):
         if not self.current_path:
             return
 
-        # Use the provided text or the input field
-        text = text or self.new_task_input.text().strip()
-        if not text:
-            return  # nothing to add
-
-        # Create the task widget
-        task = TaskItem(text)
-        # Connect the removed signal so the task disappears and updates the file
-        task.removed.connect(self.remove_task)
-
-        # Add to the layout (above the stretch)
-        self.task_layout.insertWidget(0, task)
-
-        # Clear the input field
-        self.new_task_input.clear()
-
-        # Save immediately if requested
-        if save:
-            self.save_tasks_to_file()
-
-    def remove_task(self, task_widget):
-        # Remove from layout
-        self.task_layout.removeWidget(task_widget)
-        task_widget.deleteLater()
-        # Save the updated list
-        self.save_tasks_to_file()
-
-    def save_tasks_to_file(self):
-        if not self.current_path:
-            return
-
-        tasks = []
-        for i in range(self.task_layout.count()):
-            widget = self.task_layout.itemAt(i).widget()
-            if isinstance(widget, TaskItem):
-                tasks.append(widget.checkbox.text())
-
-        save_tasks(self.current_path, "\n".join(tasks))
+        data = {
+            "tasks": [task.to_dict() for task in self.tasks]
+        }
+        save_tasks(self.current_path, data)

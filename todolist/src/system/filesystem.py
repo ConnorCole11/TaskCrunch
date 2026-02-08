@@ -1,20 +1,21 @@
+import json
 from pathlib import Path
 
-LISTS_ROOT = Path("lists")
+
+def load_tasks(path: Path) -> dict:
+    path.mkdir(parents=True, exist_ok=True)
+    file = path / "tasks.json"
+
+    if not file.exists():
+        return {"tasks": []}
+
+    with open(file, "r", encoding="utf-8") as f:
+        return json.load(f)
 
 
-def get_task_file(folder_path: Path) -> Path:
-    return folder_path / "tasks.txt"
+def save_tasks(path: Path, data: dict):
+    path.mkdir(parents=True, exist_ok=True)
+    file = path / "tasks.json"
 
-
-def load_tasks(folder_path: Path) -> str:
-    task_file = get_task_file(folder_path)
-    if task_file.exists():
-        return task_file.read_text()
-    return ""
-
-
-def save_tasks(folder_path: Path, text: str):
-    task_file = get_task_file(folder_path)
-    task_file.parent.mkdir(parents=True, exist_ok=True)
-    task_file.write_text(text)
+    with open(file, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2)

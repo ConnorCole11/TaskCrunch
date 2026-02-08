@@ -3,11 +3,9 @@ from PySide6.QtWidgets import (
     QTreeWidgetItem, QPushButton, QLineEdit, QMessageBox,
     QScrollArea
 )
-from src.taskView.task_widgets import TaskItem
 from PySide6.QtWidgets import QWidget, QHBoxLayout, QSplitter, QPushButton, QVBoxLayout
 from src.projectTree.sidebar import ProjectTree
 from src.taskView.tasks_view import TaskEditor
-from src.system.filesystem import load_tasks, save_tasks
 
 
 class MainWindow(QWidget):
@@ -31,5 +29,5 @@ class MainWindow(QWidget):
 
     def on_item_clicked(self, item):
         path = item.data(0, 1)
-        text = load_tasks(path)
-        self.editor.load_text(text, path)
+        self.editor.load_tasks_from_path(path)
+
