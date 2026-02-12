@@ -8,7 +8,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Signal
 
-from src.taskView.task_widgets import TaskItem
+from src.taskView.task_widgets import TaskItem, TaskClickFilter
 from src.taskView.Task import Task
 # from src.taskView.task_createView import TaskCreationView
 from src.system.filesystem import load_tasks, save_tasks
@@ -129,8 +129,11 @@ class TasksView(QWidget):
         item.remove_requested.connect(self.remove_task)
         # item.edit_requested.connect(self.edit_task)
 
-        # NEW: emit selection when clicked
-        item.mousePressEvent = lambda event, w=item: self.handle_task_click(w)
+        # --- Event filter for clickable selection ---
+        filter = TaskClickFilter(self, item)
+        item.installEventFilter(filter)
+        for child in item.findChildren(QWidget):
+            child.installEventFilter(filter)
 
         self.task_layout.insertWidget(
             self.task_layout.count() - 1,
