@@ -53,21 +53,27 @@ class TasksView(QWidget):
     # ------------------------------------------------------------------
     # Public API (called by MainWindow)
     # ------------------------------------------------------------------
-    def handle_task_click(self, clicked_item: Task):
-        # Unhighlight previous
-        if self.selected_task_item:
+    def handle_task_click(self, clicked_item: TaskItem):
+        # Make sure the previous selected item still exists
+        if self.selected_task_item and not self.selected_task_item.isHidden():
             self.selected_task_item.setStyleSheet("")  # Reset style
 
         # Highlight new
-        clicked_item.setStyleSheet("background-color: lightblue;")  # Example
+        clicked_item.setStyleSheet("background-color: lightblue;")
         self.selected_task_item = clicked_item
 
-        # Emit the task object as before
+        # Emit the task object
         self.taskSelected.emit(clicked_item.task)
+
 
     def load_tasks_from_path(self, path: Path):
         """Load tasks for the selected project/subproject."""
         self.current_path = path
+
+        # Clear selection first
+        self.selected_task_item = None
+
+        # Then remove old widgets
         self.clear_tasks()
 
         data = load_tasks(path) or {}
@@ -78,6 +84,7 @@ class TasksView(QWidget):
 
         for task in self.tasks:
             self.add_task_widget(task)
+
 
     # ------------------------------------------------------------------
     # Task creation / removal / editing
