@@ -10,7 +10,8 @@ class ProjectTree(QWidget):
         super().__init__()
         self.config = config
         self.ROOT_NAME = "Tasks"
-        self.LISTS_ROOT = Path(self.config.rootPath)
+        self.LISTS_ROOT = Path(self.config.rootPath).expanduser()
+
 
         self.tree = QTreeWidget()
         self.tree.setHeaderHidden(True)
