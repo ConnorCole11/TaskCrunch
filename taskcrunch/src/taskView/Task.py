@@ -1,5 +1,7 @@
 from datetime import datetime
 from PySide6.QtGui import QColor
+from pathlib import Path
+from typing import List
 
 class Task:
     """
@@ -33,25 +35,24 @@ class Task:
     defaultDescript = "No description provided."
 
     def __init__(
-            self, 
-            name,
-            deadline=None, 
-            duration = None, 
-            description=defaultDescript, 
-            color=grey,
-            basePriority=1, 
-            attachments=None, 
-            label: str = None
-            ):
+        self,
+        name: str,
+        deadline: datetime | None = None,
+        duration: int | None = None,  # duration in minutes
+        description: str = defaultDescript,
+        color: QColor = grey,
+        basePriority: int = 1,
+        attachments: List[str] | None = None,
+        label: str | None = None,
+    ):
         self.name = name
         self.deadline = deadline
         self.duration = duration
         self.description = description
         self.color = color
         self.basePriority = basePriority
-        self.attachments = attachments
+        self.attachments = attachments or []
         self.label = label
-        self.to_dict()
 
     def to_dict(self):
         return {
@@ -61,19 +62,21 @@ class Task:
             "deadline": self.deadline.isoformat() if self.deadline else None,
             "duration": self.duration,
             "priority": self.basePriority,
-            "color": self.color.name(),  # "name" means the "#808080" format
+            "color": self.color.name(),
             "attachments": self.attachments,
         }
-        
+
     @staticmethod
     def from_dict(data: dict):
         return Task(
             name=data.get("name"),
             label=data.get("label"),
             description=data.get("description"),
-            deadline=datetime.fromisoformat(data["deadline"]) if data.get("deadline") else None,
+            deadline=datetime.fromisoformat(data["deadline"])
+            if data.get("deadline")
+            else None,
             duration=data.get("duration"),
             basePriority=data.get("priority", 1),
             color=QColor(data.get("color", "#808080")),
-            attachments=data.get("attachments"),
+            attachments=data.get("attachments", []),
         )

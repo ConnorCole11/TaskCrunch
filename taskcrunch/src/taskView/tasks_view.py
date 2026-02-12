@@ -90,7 +90,11 @@ class TaskEditor(QWidget):
 
     def edit_task(self, task: Task):
         """Open dialog to edit an existing task."""
-        dialog = TaskCreateDialog(task, self)
+        dialog = TaskCreateDialog(
+            task,
+            project_path=self.current_path,
+            parent=self,
+            )
 
         if dialog.exec():
             # task is already mutated

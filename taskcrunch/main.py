@@ -5,7 +5,7 @@ from src.system.Config import Config
 from pathlib import Path
 
 config = Config()
-Path(config.taskPath).mkdir(parents=True, exist_ok=True)
+Path(config.rootPath).mkdir(parents=True, exist_ok=True)
 
 app = QApplication(sys.argv)
 window = MainWindow(config)

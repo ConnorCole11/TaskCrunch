@@ -1,3 +1,3 @@
 class Config:
     def __init__(self):
-        self.taskPath = 'Tasks'
+        self.rootPath = '~/Desktop/TaskCrunch/Tasks'

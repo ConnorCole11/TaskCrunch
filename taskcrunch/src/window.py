@@ -6,7 +6,9 @@ from PySide6.QtWidgets import (
 from PySide6.QtWidgets import QWidget, QHBoxLayout, QSplitter, QPushButton, QVBoxLayout
 from src.projectTree.sidebar import ProjectTree
 from src.taskView.tasks_view import TaskEditor
+from src.system.Config import Config
 
+config = Config()
 
 class MainWindow(QWidget):
     def __init__(self, config):
