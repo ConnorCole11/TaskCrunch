@@ -6,14 +6,15 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QScrollArea,
 )
+from PySide6.QtCore import Signal
 
 from src.taskView.task_widgets import TaskItem
 from src.taskView.Task import Task
-from src.taskView.task_createView import TaskCreateDialog
+from src.taskView.task_createView import TaskCreationView
 from src.system.filesystem import load_tasks, save_tasks
 
 
-class TaskEditor(QWidget):
+class TasksView(QWidget):
     """
     Central task view.
     Owns the in-memory Task objects for the currently selected folder.
@@ -21,6 +22,7 @@ class TaskEditor(QWidget):
 
     def __init__(self):
         super().__init__()
+        self.taskSelected = Signal(object)
 
         self.current_path: Path | None = None
         self.tasks: list[Task] = []
@@ -90,7 +92,7 @@ class TaskEditor(QWidget):
 
     def edit_task(self, task: Task):
         """Open dialog to edit an existing task."""
-        dialog = TaskCreateDialog(
+        dialog = TaskCreationView(
             task,
             project_path=self.current_path,
             parent=self,

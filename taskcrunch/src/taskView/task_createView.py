@@ -23,7 +23,7 @@ from pathlib import Path
 import shutil
 
 
-class TaskCreateDialog(QDialog):
+class TaskCreationView(QDialog):
     """
     Dialog for creating or editing a Task.
     Mutates the provided Task object if accepted.
