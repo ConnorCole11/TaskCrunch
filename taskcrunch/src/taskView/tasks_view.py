@@ -10,7 +10,7 @@ from PySide6.QtCore import Signal
 
 from src.taskView.task_widgets import TaskItem
 from src.taskView.Task import Task
-from src.taskView.task_createView import TaskCreationView
+# from src.taskView.task_createView import TaskCreationView
 from src.system.filesystem import load_tasks, save_tasks
 
 
@@ -19,10 +19,9 @@ class TasksView(QWidget):
     Central task view.
     Owns the in-memory Task objects for the currently selected folder.
     """
-
+    taskSelected = Signal(object)
     def __init__(self):
         super().__init__()
-        self.taskSelected = Signal(object)
 
         self.current_path: Path | None = None
         self.tasks: list[Task] = []
@@ -46,9 +45,25 @@ class TasksView(QWidget):
         self.new_task_input.returnPressed.connect(self.add_task_from_input)
         layout.addWidget(self.new_task_input)
 
+        # Used to identify task to be highlighted
+        self.selected_task_item: TaskItem | None = None
+
+        
+
     # ------------------------------------------------------------------
     # Public API (called by MainWindow)
     # ------------------------------------------------------------------
+    def handle_task_click(self, clicked_item: Task):
+        # Unhighlight previous
+        if self.selected_task_item:
+            self.selected_task_item.setStyleSheet("")  # Reset style
+
+        # Highlight new
+        clicked_item.setStyleSheet("background-color: lightblue;")  # Example
+        self.selected_task_item = clicked_item
+
+        # Emit the task object as before
+        self.taskSelected.emit(clicked_item.task)
 
     def load_tasks_from_path(self, path: Path):
         """Load tasks for the selected project/subproject."""
@@ -80,7 +95,8 @@ class TasksView(QWidget):
         task = Task(name=name)
         self.tasks.append(task)
 
-        self.add_task_widget(task)
+        new_item = self.add_task_widget(task)
+        self.handle_task_click(new_item)
         self.new_task_input.clear()
         self.save()
 
@@ -90,18 +106,18 @@ class TasksView(QWidget):
             self.refresh_view()
             self.save()
 
-    def edit_task(self, task: Task):
-        """Open dialog to edit an existing task."""
-        dialog = TaskCreationView(
-            task,
-            project_path=self.current_path,
-            parent=self,
-            )
+    # def edit_task(self, task: Task):
+    #     """Open dialog to edit an existing task."""
+    #     dialog = TaskCreationView(
+    #         task,
+    #         project_path=self.current_path,
+    #         parent=self,
+    #         )
 
-        if dialog.exec():
-            # task is already mutated
-            self.refresh_view()
-            self.save()
+    #     if dialog.exec():
+    #         # task is already mutated
+    #         self.refresh_view()
+    #         self.save()
 
     # ------------------------------------------------------------------
     # UI helpers
@@ -111,15 +127,19 @@ class TasksView(QWidget):
         item = TaskItem(task)
 
         item.remove_requested.connect(self.remove_task)
-        item.edit_requested.connect(self.edit_task)
+        # item.edit_requested.connect(self.edit_task)
 
-        # insert above the stretch
+        # NEW: emit selection when clicked
+        item.mousePressEvent = lambda event, w=item: self.handle_task_click(w)
+
         self.task_layout.insertWidget(
             self.task_layout.count() - 1,
             item,
         )
+        return item
 
     def refresh_view(self):
+        self.selected_task_item = None  # clear previous selection
         self.clear_tasks()
         for task in self.tasks:
             self.add_task_widget(task)

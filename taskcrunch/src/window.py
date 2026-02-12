@@ -8,6 +8,7 @@ from src.projectTree.projectTree import ProjectTree
 from src.taskView.tasks_view import TasksView
 from src.system.Config import Config
 from src.attributeView.attributeView import AttributeView
+from src.taskView.Task import Task
 
 config = Config()
 
@@ -45,6 +46,7 @@ class MainWindow(QWidget):
         self.attributes = AttributeView()
 
         self.tree.itemClicked.connect(self.on_item_clicked)
+        self.editor.taskSelected.connect(self.attributes.load_task)
 
         # Effective Hstacks the tree, editor, and attributes
         splitter = QSplitter()
@@ -56,11 +58,11 @@ class MainWindow(QWidget):
         layout = QVBoxLayout(self)
         layout.addWidget(splitter)
 
-
+        self.attributes.taskUpdated.connect(self.editor.refresh_view)
+        self.attributes.taskUpdated.connect(lambda _: self.editor.save())
 
         
 
     def on_item_clicked(self, item):
         path = item.data(0, 1)
         self.editor.load_tasks_from_path(path)
-
