@@ -9,7 +9,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Signal
 
-from src.taskView.task_widgets import TaskItem, TaskClickFilter
+from src.taskView.task_widgets import TaskItem
 from src.taskView.Task import Task, TaskSerializer
 from src.system.filesystem import load_tasks, save_tasks
 from src.app_state import AppState
@@ -27,14 +27,21 @@ class TasksView(QWidget):
 
         self.state = state 
 
-        # ⭐ sort state (future dropdown will change this)
+        # Default settings
         self.sort_mode = "deadline"
         self.sort_reverse = False
 
-        layout = QVBoxLayout(self)
+        self._create_widgets()
+        self._create_layouts()
+        self._connect_signals()
 
-        # --- Scrollable task list ---
+    def _create_widgets(self):
         self.task_container = QWidget()
+        self.new_task_input = QLineEdit()
+        self.new_task_input.setPlaceholderText("Add a new task…")
+
+    def _create_layouts(self):
+        layout = QVBoxLayout(self)
         self.task_layout = QVBoxLayout(self.task_container)
         self.task_layout.addStretch()
 
@@ -43,30 +50,34 @@ class TasksView(QWidget):
         scroll.setWidget(self.task_container)
 
         layout.addWidget(scroll)
-
-        # --- Add-task input ---
-        self.new_task_input = QLineEdit()
-        self.new_task_input.setPlaceholderText("Add a new task…")
-        self.new_task_input.returnPressed.connect(self.add_task_from_input)
         layout.addWidget(self.new_task_input)
 
-        # UI-only state stays local
-        self.selected_task_item: TaskItem | None = None
+    def _connect_signals(self):
+        self.new_task_input.returnPressed.connect(self.add_task_from_input)
+        
+ 
 
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
+
     def handle_task_click(self, clicked_item: TaskItem):
-        if self.selected_task_item and not self.selected_task_item.isHidden():
+        """Called when a task is clicked."""
+
+        # Unhighlight previous task
+        if self.selected_task_item:
             self.selected_task_item.setStyleSheet("")
 
-        clicked_item.setStyleSheet("background-color: lightblue;")
+        # Remember the new selection
         self.selected_task_item = clicked_item
+        self.state.selected_task = clicked_item.task_info
 
-        # ✅ update shared state
-        self.state.selected_task = clicked_item.task
+        # Highlight new task
+        clicked_item.setStyleSheet("background-color: lightblue;")
 
-        self.taskSelected.emit(clicked_item.task)
+        # Notify the rest of the application
+        self.taskSelected.emit(clicked_item.task_info)
+
 
     def load_tasks_from_path(self, path: Path):
         """Load tasks for the selected project/subproject."""
@@ -95,6 +106,7 @@ class TasksView(QWidget):
     # ------------------------------------------------------------------
 
     def add_task_from_input(self):
+        """Creates a task object after the user enters a taskname."""
         if not self.state.selected_folder:
             return
 
@@ -102,47 +114,43 @@ class TasksView(QWidget):
         if not name:
             return
 
-        task = Task(name=name)
+        task_info = Task(name=name)
 
         # ✅ update shared state
-        self.state.tasks.append(task)
+        self.state.tasks.append(task_info)
 
-        new_item = self.add_task_widget(task)
-        self.handle_task_click(new_item)
+        task_widget = self.add_task_widget(task_info)
+        self.handle_task_click(task_widget)
 
         self.new_task_input.clear()
         self.save()
 
-    def remove_task(self, task: Task):
-        if task in self.state.tasks:
-            self.state.tasks.remove(task)
+    def remove_task(self, task_widget: TaskItem):
+        task_info = task_widget.task_info
+        if task_info in self.state.tasks:
+            self.state.tasks.remove(task_info)
             self.refresh_view()
             self.save()
 
     # ------------------------------------------------------------------
     # UI helpers
     # ------------------------------------------------------------------
-    def add_task_widget(self, task: Task):
-        item = TaskItem(task, self.state)
 
-        item.remove_requested.connect(self.remove_task)
+    def add_task_widget(self, task_info: Task):
+        task_widget = TaskItem(task_info)
 
-        filter = TaskClickFilter(self, item)
-        item.installEventFilter(filter)
-        for child in item.findChildren(QWidget):
-            child.installEventFilter(filter)
+        task_widget.taskClicked.connect(self.handle_task_click)
+        task_widget.remove_requested.connect(self.remove_task)
 
         self.task_layout.insertWidget(
             self.task_layout.count() - 1,
-            item,
+            task_widget,
         )
-        return item
 
-    def open_task_editor(self, task: Task):
-        dialog = TaskCreationView(task, self.current_path, self)
-        dialog.exec()  # dialog edits task in place
-        # no need to call on_task_changed() here
-        # TaskCreationView emits task.changed, which triggers on_task_changed automatically
+        task_widget.taskRemoved.connect(self.remove_task)
+
+        return task_widget
+
 
     def refresh_view(self):
         self.selected_task_item = None
@@ -158,15 +166,18 @@ class TasksView(QWidget):
             if widget:
                 widget.deleteLater()
 
+    def apply_sort(self):
+        pass
+
     def on_task_changed(self):
         """
-        Reorders TaskItems immediately without duplicating them.
+        Reorders TaskItems immediately.
         Preserves selection.
         """
-        if not self.tasks:
+        if self.state.selected_task == None:
             return
 
-        selected_task = self.selected_task_item.task if self.selected_task_item else None
+        selected_task = self.state.selected_task
 
         # Sort tasks
         self.apply_sort()

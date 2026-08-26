@@ -2,58 +2,53 @@ from PySide6.QtWidgets import (
     QWidget,
     QHBoxLayout,
     QCheckBox,
-    QPushButton,
     QLabel,
 )
-from PySide6.QtCore import QPropertyAnimation, QEasingCurve, Signal, QObject, QEvent
+
+from PySide6.QtCore import Qt, Signal
 
 from src.taskView.Task import Task
 from src.app_state import AppState
-
-
-class TaskClickFilter(QObject):
-    """Event filter to make a TaskItem clickable for selection."""
-    def __init__(self, state: AppState, item):
-        super().__init__(item)
-        self.state = state
-        self.item = item
-
-    def eventFilter(self, watched, event):
-        if event.type() == QEvent.MouseButtonPress:
-            if not isinstance(watched, (QPushButton, QCheckBox)):
-                # ✅ update global state directly
-                self.state.selected_task = self.item.task
-        return False
 
 class TaskItem(QWidget):
     """Describes a single task object widget."""
 
     remove_requested = Signal(Task)
     edit_requested = Signal(Task)
+    taskClicked = Signal(object)
+    taskRemoved = Signal(object)
 
-    def __init__(self, task: Task, state: AppState):
+    def __init__(self, task_info: Task):
         super().__init__()
 
-        self.task = task
-        self.state = state
+        self.task_info = task_info
 
-        # --- checkbox ---
+        self._create_widgets()
+        self._create_layouts()
+        self._connect_signals()
+
+    def _create_widgets(self):
         self.checkbox = QCheckBox()
-        # self.checkbox.stateChanged.connect(self.animate_removal)
+        self.name_label = QLabel(self.task_info.name)
 
-        # --- label ---
-        self.name_label = QLabel(task.name)
-
-        # --- layout ---
+    def _create_layouts(self):
         layout = QHBoxLayout(self)
         layout.addWidget(self.checkbox)
         layout.addWidget(self.name_label)
         layout.addStretch()
         layout.setContentsMargins(6, 2, 6, 2)
 
-        # --- click handling (single source of truth) ---
-        self.click_filter = TaskClickFilter(state, self)
-        self.installEventFilter(self.click_filter)
+    def _connect_signals(self):
+        self.checkbox.toggled.connect(self.handle_checkbox)
 
-        for child in self.findChildren(QWidget):
-            child.installEventFilter(self.click_filter)
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            self.taskClicked.emit(self)
+
+        super().mousePressEvent(event)
+
+
+    def handle_checkbox(self, checked: bool):
+        if checked:
+            self.taskRemoved.emit(self)
