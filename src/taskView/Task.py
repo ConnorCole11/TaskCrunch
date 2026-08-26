@@ -31,7 +31,7 @@ class Task:
     laebl : str
         A shorter description, such as 'exam' or 'project.' May be present or custom.
     """
-    grey = QColor(128, 128, 128)
+
     defaultDescript = "No description provided."
 
     def __init__(
@@ -40,7 +40,7 @@ class Task:
         deadline: datetime | None = None,
         duration: int | None = None,  # duration in minutes
         description: str = defaultDescript,
-        color: QColor = grey,
+        color: str = "#RRGGBB",
         basePriority: int = 1,
         attachments: List[str] | None = None,
         label: str | None = None,
@@ -54,29 +54,34 @@ class Task:
         self.attachments = attachments or []
         self.label = label
 
-    def to_dict(self):
+
+
+
+
+class TaskSerializer:
+
+    @staticmethod
+    def to_dict(task: Task) -> dict:
         return {
-            "name": self.name,
-            "label": self.label,
-            "description": self.description,
-            "deadline": self.deadline.isoformat() if self.deadline else None,
-            "duration": self.duration,
-            "priority": self.basePriority,
-            "color": self.color.name(),
-            "attachments": self.attachments,
+            "name": task.name,
+            "label": task.label,
+            "description": task.description,
+            "deadline": task.deadline.isoformat() if task.deadline else None,
+            "duration": task.duration,
+            "priority": task.basePriority,
+            "color": task.color,
+            "attachments": task.attachments,
         }
 
     @staticmethod
-    def from_dict(data: dict):
+    def from_dict(data: dict) -> Task:
         return Task(
-            name=data.get("name"),
+            name=data["name"],
             label=data.get("label"),
             description=data.get("description"),
-            deadline=datetime.fromisoformat(data["deadline"])
-            if data.get("deadline")
-            else None,
+            deadline=datetime.fromisoformat(data["deadline"]) if data.get("deadline") else None,
             duration=data.get("duration"),
             basePriority=data.get("priority", 1),
-            color=QColor(data.get("color", "#808080")),
+            color=data.get("color", "#808080"),
             attachments=data.get("attachments", []),
         )

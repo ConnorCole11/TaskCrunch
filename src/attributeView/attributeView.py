@@ -15,9 +15,11 @@ class AttributeView(QWidget):
         super().__init__(parent)
 
         self.current_task = None
+        self._create_widgets()
+        self._create_layouts()
+        self._connect_signals()
 
-        self.layout = QVBoxLayout(self)
-
+    def _create_widgets(self):
         # Title
         self.title_label = QLabel("Task Name")
         self.title_edit = QLineEdit()
@@ -33,8 +35,7 @@ class AttributeView(QWidget):
 
         # Save Button (optional if you want live editing instead)
         self.save_button = QPushButton("Save Changes")
-
-        self.save_button.clicked.connect(self.save_changes)
+        self.save_button.setDefault(True)
 
         # ----- Priority -----
         self.priority_label = QLabel("Priority")
@@ -51,13 +52,15 @@ class AttributeView(QWidget):
         # ----- Attachments -----
         self.attach_label = QLabel("Attachments")
         self.attach_list = QListWidget()
-
-        attach_buttons = QHBoxLayout()
         self.add_attach_btn = QPushButton("Add")
         self.remove_attach_btn = QPushButton("Remove")
+
+    def _create_layouts(self):
+        self.layout = QVBoxLayout(self)
+
+        attach_buttons = QHBoxLayout()
         attach_buttons.addWidget(self.add_attach_btn)
         attach_buttons.addWidget(self.remove_attach_btn)
-
         self.layout.addWidget(self.title_label)
         self.layout.addWidget(self.title_edit)
 
@@ -80,6 +83,8 @@ class AttributeView(QWidget):
         self.layout.addStretch()
         self.layout.addWidget(self.save_button)
 
+    def _connect_signals(self):
+        self.save_button.clicked.connect(self.save_changes)
         self.add_attach_btn.clicked.connect(self.add_attachment)
         self.remove_attach_btn.clicked.connect(self.remove_attachment)
 

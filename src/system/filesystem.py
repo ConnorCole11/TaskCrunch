@@ -3,6 +3,7 @@ from pathlib import Path
 
 
 def load_tasks(path: Path) -> dict:
+    """path is the folder path that contains tasks.json"""
     path.mkdir(parents=True, exist_ok=True)
     file = path / "tasks.json"
 

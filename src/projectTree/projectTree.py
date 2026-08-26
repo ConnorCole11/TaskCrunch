@@ -1,51 +1,81 @@
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QTreeWidget, QTreeWidgetItem, QInputDialog, QMessageBox
+from PySide6.QtWidgets import (
+    QWidget, QVBoxLayout, QHBoxLayout,
+    QPushButton, QTreeWidget, QTreeWidgetItem,
+    QInputDialog, QMessageBox
+)
+from PySide6.QtCore import Signal
 from pathlib import Path
 import shutil
 
-
+from src.app_state import AppState
 
 
 class ProjectTree(QWidget):
-    def __init__(self, config):
+    project_selected = Signal(Path)
+
+    def __init__(self, config, state: AppState):
         super().__init__()
         self.config = config
-        self.ROOT_NAME = "Tasks"
-        self.LISTS_ROOT = Path(self.config.rootPath).expanduser()
+        self.state = state  # ✅ shared state
 
+        self.STORAGE_FOLDER = "Tasks"
+        self.LISTS_ROOT = Path(self.config.rootPath).expanduser() / self.STORAGE_FOLDER
 
+        self._create_widgets()
+        self._create_layouts()
+        self._connect_signals()
+
+        self.populate()
+
+    def _create_widgets(self):
         self.tree = QTreeWidget()
         self.tree.setHeaderHidden(True)
 
         self.add_button = QPushButton("+ Add Folder")
-        self.add_button.clicked.connect(self.add_folder)
         self.remove_button = QPushButton("- Remove Folder")
-        self.remove_button.clicked.connect(self.remove_folder)
 
+    def _create_layouts(self):
         folder_buttons = QHBoxLayout()
         folder_buttons.addWidget(self.add_button)
         folder_buttons.addWidget(self.remove_button)
-        folder_buttons.addStretch()  
+        folder_buttons.addStretch()
+
         layout = QVBoxLayout(self)
         layout.addLayout(folder_buttons)
         layout.addWidget(self.tree)
 
-        self.populate()
+    def _connect_signals(self):
+        self.tree.itemClicked.connect(self.on_item_clicked)
+        self.add_button.clicked.connect(self.add_folder)
+        self.remove_button.clicked.connect(self.remove_folder)
+        
 
-    @property
-    def itemClicked(self):
-        return self.tree.itemClicked
+    # ------------------------------------------------------------------
+    # Selection handling
+    # ------------------------------------------------------------------
 
-    # -------- TREE POPULATION WITH EXPANDED STATE --------
+    def on_item_clicked(self, item: QTreeWidgetItem):
+        path = item.data(0, 1)
+
+        # ✅ update shared state
+        self.state.selected_folder = path
+        self.state.selected_task = None  # reset selection
+
+        self.project_selected.emit(Path(path))
+
+    # ------------------------------------------------------------------
+    # TREE POPULATION
+    # ------------------------------------------------------------------
+
     def populate(self):
-
         expanded_paths = self.get_expanded_paths()
         self.tree.clear()
 
-        # Create a top-level root item
         root_item = self._build_item(self.LISTS_ROOT)
-        root_item.setText(0, self.ROOT_NAME)  # display as "Tasks"
+        root_item.setText(0, self.STORAGE_FOLDER)
+
         self.tree.addTopLevelItem(root_item)
-        root_item.setExpanded(True)  # show it open by default
+        root_item.setExpanded(True)
 
         self.restore_expanded_state(expanded_paths)
 
@@ -59,7 +89,10 @@ class ProjectTree(QWidget):
 
         return item
 
-    # -------- ADD FOLDER --------
+    # ------------------------------------------------------------------
+    # Folder operations
+    # ------------------------------------------------------------------
+
     def add_folder(self):
         selected = self.tree.currentItem()
         parent_path = selected.data(0, 1) if selected else self.LISTS_ROOT
@@ -71,10 +104,7 @@ class ProjectTree(QWidget):
         new_folder = parent_path / name.strip()
         new_folder.mkdir(exist_ok=True)
 
-        # Repopulate tree
         self.populate()
-
-        # Select new folder and expand its parent
         self.select_path(new_folder, expand_parent=True)
 
     def remove_folder(self):
@@ -83,6 +113,7 @@ class ProjectTree(QWidget):
             return
 
         path = selected.data(0, 1)
+
         if path == self.LISTS_ROOT:
             QMessageBox.warning(self, "Cannot remove root", "Cannot remove the root folder.")
             return
@@ -93,12 +124,21 @@ class ProjectTree(QWidget):
             f"Are you sure you want to delete '{path.name}' and all its contents?",
             QMessageBox.Yes | QMessageBox.No,
         )
+
         if reply == QMessageBox.Yes:
             shutil.rmtree(path)
+
+            # ✅ clear state if deleted folder was selected
+            if self.state.selected_folder == path:
+                self.state.selected_folder = None
+                self.state.selected_task = None
+
             self.populate()
 
+    # ------------------------------------------------------------------
+    # Helpers
+    # ------------------------------------------------------------------
 
-    # -------- HELPERS --------
     def get_expanded_paths(self):
         expanded = set()
 
@@ -126,13 +166,18 @@ class ProjectTree(QWidget):
             recurse(self.tree.topLevelItem(i))
 
     def select_path(self, path: Path, expand_parent=False):
-        """Select the tree item corresponding to path. Optionally expand its parent."""
-        def recurse(item: QTreeWidgetItem, parent: QTreeWidgetItem | None = None):
+        def recurse(item: QTreeWidgetItem, parent=None):
             if item.data(0, 1) == path:
                 self.tree.setCurrentItem(item)
+
+                # ✅ update state when selecting programmatically
+                self.state.selected_folder = path
+                self.state.selected_task = None
+
                 if expand_parent and parent:
                     parent.setExpanded(True)
                 return True
+
             for i in range(item.childCount()):
                 if recurse(item.child(i), parent=item):
                     return True

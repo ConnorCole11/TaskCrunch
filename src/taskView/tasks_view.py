@@ -9,22 +9,22 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Signal
 
 from src.taskView.task_widgets import TaskItem, TaskClickFilter
-from src.taskView.Task import Task
-# from src.taskView.task_createView import TaskCreationView
+from src.taskView.Task import Task, TaskSerializer
 from src.system.filesystem import load_tasks, save_tasks
+from src.app_state import AppState
 
 
 class TasksView(QWidget):
     """
     Central task view.
-    Owns the in-memory Task objects for the currently selected folder.
+    Uses shared AppState instead of owning its own data.
     """
     taskSelected = Signal(object)
-    def __init__(self):
+
+    def __init__(self, state: AppState):
         super().__init__()
 
-        self.current_path: Path | None = None
-        self.tasks: list[Task] = []
+        self.state = state 
 
         layout = QVBoxLayout(self)
 
@@ -45,54 +45,52 @@ class TasksView(QWidget):
         self.new_task_input.returnPressed.connect(self.add_task_from_input)
         layout.addWidget(self.new_task_input)
 
-        # Used to identify task to be highlighted
+        # UI-only state stays local
         self.selected_task_item: TaskItem | None = None
 
-        
-
     # ------------------------------------------------------------------
-    # Public API (called by MainWindow)
+    # Public API
     # ------------------------------------------------------------------
     def handle_task_click(self, clicked_item: TaskItem):
-        # Make sure the previous selected item still exists
         if self.selected_task_item and not self.selected_task_item.isHidden():
-            self.selected_task_item.setStyleSheet("")  # Reset style
+            self.selected_task_item.setStyleSheet("")
 
-        # Highlight new
         clicked_item.setStyleSheet("background-color: lightblue;")
         self.selected_task_item = clicked_item
 
-        # Emit the task object
-        self.taskSelected.emit(clicked_item.task)
+        # ✅ update shared state
+        self.state.selected_task = clicked_item.task
 
+        self.taskSelected.emit(clicked_item.task)
 
     def load_tasks_from_path(self, path: Path):
         """Load tasks for the selected project/subproject."""
-        self.current_path = path
 
-        # Clear selection first
+        # ✅ update shared state
+        self.state.selected_folder = path
+        self.state.selected_task = None
+
         self.selected_task_item = None
-
-        # Then remove old widgets
         self.clear_tasks()
 
         data = load_tasks(path) or {}
-        self.tasks = [
-            Task.from_dict(task_data)
+
+        # ✅ store in shared state
+        self.state.tasks = [
+            TaskSerializer.from_dict(task_data)
             for task_data in data.get("tasks", [])
         ]
 
-        for task in self.tasks:
+        for task in self.state.tasks:
             self.add_task_widget(task)
-
+        
 
     # ------------------------------------------------------------------
-    # Task creation / removal / editing
+    # Task creation / removal
     # ------------------------------------------------------------------
 
     def add_task_from_input(self):
-        """Quick-create a task using only the name."""
-        if not self.current_path:
+        if not self.state.selected_folder:
             return
 
         name = self.new_task_input.text().strip()
@@ -100,43 +98,31 @@ class TasksView(QWidget):
             return
 
         task = Task(name=name)
-        self.tasks.append(task)
+
+        # ✅ update shared state
+        self.state.tasks.append(task)
 
         new_item = self.add_task_widget(task)
         self.handle_task_click(new_item)
+
         self.new_task_input.clear()
         self.save()
 
     def remove_task(self, task: Task):
-        if task in self.tasks:
-            self.tasks.remove(task)
+        if task in self.state.tasks:
+            self.state.tasks.remove(task)
             self.refresh_view()
             self.save()
-
-    # def edit_task(self, task: Task):
-    #     """Open dialog to edit an existing task."""
-    #     dialog = TaskCreationView(
-    #         task,
-    #         project_path=self.current_path,
-    #         parent=self,
-    #         )
-
-    #     if dialog.exec():
-    #         # task is already mutated
-    #         self.refresh_view()
-    #         self.save()
 
     # ------------------------------------------------------------------
     # UI helpers
     # ------------------------------------------------------------------
 
     def add_task_widget(self, task: Task):
-        item = TaskItem(task)
+        item = TaskItem(task, self.state)
 
         item.remove_requested.connect(self.remove_task)
-        # item.edit_requested.connect(self.edit_task)
 
-        # --- Event filter for clickable selection ---
         filter = TaskClickFilter(self, item)
         item.installEventFilter(filter)
         for child in item.findChildren(QWidget):
@@ -149,9 +135,10 @@ class TasksView(QWidget):
         return item
 
     def refresh_view(self):
-        self.selected_task_item = None  # clear previous selection
+        self.selected_task_item = None
         self.clear_tasks()
-        for task in self.tasks:
+
+        for task in self.state.tasks:
             self.add_task_widget(task)
 
     def clear_tasks(self):
@@ -166,10 +153,11 @@ class TasksView(QWidget):
     # ------------------------------------------------------------------
 
     def save(self):
-        if not self.current_path:
+        if not self.state.selected_folder:
             return
 
         data = {
-            "tasks": [task.to_dict() for task in self.tasks]
+            "tasks": [TaskSerializer.to_dict(task) for task in self.state.tasks]
         }
-        save_tasks(self.current_path, data)
+
+        save_tasks(self.state.selected_folder, data)

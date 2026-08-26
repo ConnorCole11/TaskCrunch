@@ -6,11 +6,12 @@ from PySide6.QtWidgets import (
 from PySide6.QtWidgets import QWidget, QHBoxLayout, QSplitter, QPushButton, QVBoxLayout
 from src.projectTree.projectTree import ProjectTree
 from src.taskView.tasks_view import TasksView
-from src.system.Config import Config
+import config
 from src.attributeView.attributeView import AttributeView
 from src.taskView.Task import Task
+from src.app_state import AppState
 
-config = Config()
+from pathlib import Path
 
 class MainWindow(QWidget):
     """
@@ -38,31 +39,38 @@ class MainWindow(QWidget):
     """
     def __init__(self, config):
         super().__init__()
+        task_root = Path(config.rootPath) / "Tasks"
+        self.app_state = AppState(task_root)
+
         self.setWindowTitle("📝 To-Do List")
         self.resize(1200, 500)
 
-        self.tree = ProjectTree(config)
-        self.editor = TasksView()
+        self._create_widgets()
+        self._create_layouts()
+        self._connect_signals()
+
+
+    def _create_widgets(self):
+        self.project_tree = ProjectTree(config, self.app_state)
+        self.taskview = TasksView(self.app_state)
         self.attributes = AttributeView()
 
-        self.tree.itemClicked.connect(self.on_item_clicked)
-        self.editor.taskSelected.connect(self.attributes.load_task)
-
-        # Effective Hstacks the tree, editor, and attributes
+    def _create_layouts(self):
         splitter = QSplitter()
-        splitter.addWidget(self.tree)
-        splitter.addWidget(self.editor)
+        splitter.addWidget(self.project_tree)
+        splitter.addWidget(self.taskview)
         splitter.addWidget(self.attributes)
         splitter.setStretchFactor(1, 1)
 
         layout = QVBoxLayout(self)
         layout.addWidget(splitter)
 
-        self.attributes.taskUpdated.connect(self.editor.refresh_view)
-        self.attributes.taskUpdated.connect(lambda _: self.editor.save())
-
-        
+    def _connect_signals(self):
+        self.taskview.taskSelected.connect(self.attributes.load_task)
+        self.attributes.taskUpdated.connect(self.taskview.refresh_view)
+        self.attributes.taskUpdated.connect(lambda _: self.taskview.save())
+        self.project_tree.project_selected.connect(self.taskview.load_tasks_from_path)
 
     def on_item_clicked(self, item):
         path = item.data(0, 1)
-        self.editor.load_tasks_from_path(path)
+        self.taskview.load_tasks_from_path(path)
