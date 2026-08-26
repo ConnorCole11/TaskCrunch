@@ -56,32 +56,32 @@ class AttributeView(QWidget):
         self.remove_attach_btn = QPushButton("Remove")
 
     def _create_layouts(self):
-        self.layout = QVBoxLayout(self)
+        self.my_layout = QVBoxLayout(self)
 
         attach_buttons = QHBoxLayout()
         attach_buttons.addWidget(self.add_attach_btn)
         attach_buttons.addWidget(self.remove_attach_btn)
-        self.layout.addWidget(self.title_label)
-        self.layout.addWidget(self.title_edit)
+        self.my_layout.addWidget(self.title_label)
+        self.my_layout.addWidget(self.title_edit)
 
-        self.layout.addWidget(self.deadline_label)
-        self.layout.addWidget(self.deadline_edit)
+        self.my_layout.addWidget(self.deadline_label)
+        self.my_layout.addWidget(self.deadline_edit)
 
-        self.layout.addWidget(self.priority_label)
-        self.layout.addWidget(self.priority_spin)
+        self.my_layout.addWidget(self.priority_label)
+        self.my_layout.addWidget(self.priority_spin)
 
-        self.layout.addWidget(self.duration_label)
-        self.layout.addWidget(self.duration_spin)
+        self.my_layout.addWidget(self.duration_label)
+        self.my_layout.addWidget(self.duration_spin)
 
-        self.layout.addWidget(self.desc_label)
-        self.layout.addWidget(self.desc_edit)
+        self.my_layout.addWidget(self.desc_label)
+        self.my_layout.addWidget(self.desc_edit)
 
-        self.layout.addWidget(self.attach_label)
-        self.layout.addWidget(self.attach_list)
-        self.layout.addLayout(attach_buttons)
+        self.my_layout.addWidget(self.attach_label)
+        self.my_layout.addWidget(self.attach_list)
+        self.my_layout.addLayout(attach_buttons)
         
-        self.layout.addStretch()
-        self.layout.addWidget(self.save_button)
+        self.my_layout.addStretch()
+        self.my_layout.addWidget(self.save_button)
 
     def _connect_signals(self):
         self.save_button.clicked.connect(self.save_changes)
@@ -89,27 +89,58 @@ class AttributeView(QWidget):
         self.remove_attach_btn.clicked.connect(self.remove_attachment)
 
     # Called when a task is selected
-    def load_task(self, task):
-        self.current_task = task
+    # def load_task(self, task_info):
+    #     self.current_task = task_info
 
-        if not task:
+    #     if not task_info:
+    #         self.clear()
+    #         return
+
+    #     self.title_edit.setText(task_info.name)
+    #     self.desc_edit.setPlainText(task_info.description)
+
+    #     if task_info.deadline:
+    #         self.deadline_edit.setDate(QDate(task_info.deadline.year,
+    #                                         task_info.deadline.month,
+    #                                         task_info.deadline.day))
+
+    #     # ----- New fields -----
+    #     self.priority_spin.setValue(task_info.basePriority or 1)
+    #     self.duration_spin.setValue(task_info.duration or 0)
+
+    #     self.attach_list.clear()
+    #     for attachment in task_info.attachments:
+    #         self.attach_list.addItem(attachment)
+
+    def load_task(self, task_info):
+        self.current_task = task_info
+
+        if not task_info:
             self.clear()
             return
 
-        self.title_edit.setText(task.name)
-        self.desc_edit.setPlainText(task.description)
+        self.title_edit.setText(task_info.name)
+        self.desc_edit.setPlainText(task_info.description)
 
-        if task.deadline:
-            self.deadline_edit.setDate(QDate(task.deadline.year,
-                                            task.deadline.month,
-                                            task.deadline.day))
+        # Deadline
+        deadline = task_info.deadline
 
-        # ----- New fields -----
-        self.priority_spin.setValue(task.basePriority or 1)
-        self.duration_spin.setValue(task.duration or 0)
+        if deadline is not None:
+            self.deadline_edit.setDate(
+                QDate(
+                    deadline.year,
+                    deadline.month,
+                    deadline.day
+                )
+            )
+        else:
+            self.deadline_edit.setDate(QDate.currentDate())
+
+        self.priority_spin.setValue(task_info.basePriority or 1)
+        self.duration_spin.setValue(task_info.duration or 0)
 
         self.attach_list.clear()
-        for attachment in task.attachments:
+        for attachment in task_info.attachments:
             self.attach_list.addItem(attachment)
 
 

@@ -20,7 +20,7 @@ class TasksView(QWidget):
     Central task view.
     Uses shared AppState instead of owning its own data.
     """
-    taskSelected = Signal(object)
+    taskSelected = Signal(Task)
 
     def __init__(self, state: AppState):
         super().__init__()
@@ -78,27 +78,30 @@ class TasksView(QWidget):
         # Notify the rest of the application
         self.taskSelected.emit(clicked_item.task_info)
 
-
     def load_tasks_from_path(self, path: Path):
-        """Load tasks for the selected project/subproject."""
+        """Load tasks for the selected project and all subprojects."""
 
-        # ✅ update shared state
         self.state.selected_folder = path
         self.state.selected_task = None
 
         self.selected_task_item = None
-        self.clear_tasks()
+        self._clear_tasks()
 
-        data = load_tasks(path) or {}
+        self.state.tasks = []
 
-        # ✅ store in shared state
-        self.state.tasks = [
-            TaskSerializer.from_dict(task_data)
-            for task_data in data.get("tasks", [])
-        ]
+        # Include the selected folder itself
+        folders = [path]
 
-        for task in self.state.tasks:
-            self.add_task_widget(task)
+        # Include all subproject folders recursively
+        folders.extend(p for p in path.rglob("*") if p.is_dir())
+
+        for folder in folders:
+            data = load_tasks(folder) or {}
+
+            for task_data in data.get("tasks", []):
+                task = TaskSerializer.from_dict(task_data)
+                self.state.tasks.append(task)
+                self.add_task_widget(task)
         
 
     # ------------------------------------------------------------------
@@ -126,6 +129,7 @@ class TasksView(QWidget):
         self.save()
 
     def remove_task(self, task_widget: TaskItem):
+        """Removes task data, and task widget"""
         task_info = task_widget.task_info
         if task_info in self.state.tasks:
             self.state.tasks.remove(task_info)
@@ -137,6 +141,7 @@ class TasksView(QWidget):
     # ------------------------------------------------------------------
 
     def add_task_widget(self, task_info: Task):
+        """Takes task info and creates a task widget"""
         task_widget = TaskItem(task_info)
 
         task_widget.taskClicked.connect(self.handle_task_click)
@@ -151,70 +156,24 @@ class TasksView(QWidget):
 
         return task_widget
 
-
-    def refresh_view(self):
-        self.selected_task_item = None
-        self.clear_tasks()
-
-        for task in self.state.tasks:
-            self.add_task_widget(task)
-
-    def clear_tasks(self):
+    def _clear_tasks(self):
+        """Removes all task widgets"""
         while self.task_layout.count() > 1:
             item = self.task_layout.takeAt(0)
             widget = item.widget()
             if widget:
                 widget.deleteLater()
 
+    def refresh_view(self):
+        """Clears all tasks and adds back what is saved in the saved data files"""
+        self.selected_task_item = None
+        self._clear_tasks()
+
+        for task in self.state.tasks:
+            self.add_task_widget(task)
+
     def apply_sort(self):
         pass
-
-    def on_task_changed(self):
-        """
-        Reorders TaskItems immediately.
-        Preserves selection.
-        """
-        if self.state.selected_task == None:
-            return
-
-        selected_task = self.state.selected_task
-
-        # Sort tasks
-        self.apply_sort()
-
-        # Map each task to its existing widget
-        task_to_widget = {}
-        for i in range(self.task_layout.count()):
-            w = self.task_layout.itemAt(i).widget()
-            if isinstance(w, TaskItem):
-                task_to_widget[w.task] = w
-
-        # Reorder widgets in layout without clearing everything
-        # Start from top, remove & reinsert in sorted order
-        for i, task in enumerate(self.tasks):
-            widget = task_to_widget.get(task)
-            if widget:
-                current_index = self.task_layout.indexOf(widget)
-                if current_index != i:
-                    self.task_layout.removeWidget(widget)
-                    self.task_layout.insertWidget(i, widget)
-                widget.refresh()
-            else:
-                # Only create new TaskItem for truly new tasks
-                self.task_layout.insertWidget(i, self.add_task_widget(task))
-
-        # Ensure stretch is at the bottom
-        stretch_index = self.task_layout.count() - 1
-        self.task_layout.addStretch(stretch_index)
-
-        # Restore selection
-        if selected_task:
-            widget = task_to_widget.get(selected_task)
-            if widget:
-                self.handle_task_click(widget)
-
-        # Save
-        self.save()
 
     # ------------------------------------------------------------------
     # Persistence
