@@ -5,6 +5,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QLineEdit,
     QScrollArea,
+    QDialog
 )
 from PySide6.QtCore import Signal
 
@@ -25,6 +26,10 @@ class TasksView(QWidget):
         super().__init__()
 
         self.state = state 
+
+        # ⭐ sort state (future dropdown will change this)
+        self.sort_mode = "deadline"
+        self.sort_reverse = False
 
         layout = QVBoxLayout(self)
 
@@ -117,7 +122,6 @@ class TasksView(QWidget):
     # ------------------------------------------------------------------
     # UI helpers
     # ------------------------------------------------------------------
-
     def add_task_widget(self, task: Task):
         item = TaskItem(task, self.state)
 
@@ -134,6 +138,12 @@ class TasksView(QWidget):
         )
         return item
 
+    def open_task_editor(self, task: Task):
+        dialog = TaskCreationView(task, self.current_path, self)
+        dialog.exec()  # dialog edits task in place
+        # no need to call on_task_changed() here
+        # TaskCreationView emits task.changed, which triggers on_task_changed automatically
+
     def refresh_view(self):
         self.selected_task_item = None
         self.clear_tasks()
@@ -147,6 +157,53 @@ class TasksView(QWidget):
             widget = item.widget()
             if widget:
                 widget.deleteLater()
+
+    def on_task_changed(self):
+        """
+        Reorders TaskItems immediately without duplicating them.
+        Preserves selection.
+        """
+        if not self.tasks:
+            return
+
+        selected_task = self.selected_task_item.task if self.selected_task_item else None
+
+        # Sort tasks
+        self.apply_sort()
+
+        # Map each task to its existing widget
+        task_to_widget = {}
+        for i in range(self.task_layout.count()):
+            w = self.task_layout.itemAt(i).widget()
+            if isinstance(w, TaskItem):
+                task_to_widget[w.task] = w
+
+        # Reorder widgets in layout without clearing everything
+        # Start from top, remove & reinsert in sorted order
+        for i, task in enumerate(self.tasks):
+            widget = task_to_widget.get(task)
+            if widget:
+                current_index = self.task_layout.indexOf(widget)
+                if current_index != i:
+                    self.task_layout.removeWidget(widget)
+                    self.task_layout.insertWidget(i, widget)
+                widget.refresh()
+            else:
+                # Only create new TaskItem for truly new tasks
+                self.task_layout.insertWidget(i, self.add_task_widget(task))
+
+        # Ensure stretch is at the bottom
+        stretch_index = self.task_layout.count() - 1
+        self.task_layout.addStretch(stretch_index)
+
+        # Restore selection
+        if selected_task:
+            widget = task_to_widget.get(selected_task)
+            if widget:
+                self.handle_task_click(widget)
+
+        # Save
+        self.save()
 
     # ------------------------------------------------------------------
     # Persistence
