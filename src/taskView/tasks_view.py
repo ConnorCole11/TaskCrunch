@@ -14,6 +14,7 @@ from src.taskView.Task import Task, TaskSerializer
 from src.system.filesystem import load_tasks, save_tasks
 from src.app_state import AppState
 
+from datetime import date, datetime
 
 class TasksView(QWidget):
     """
@@ -78,6 +79,31 @@ class TasksView(QWidget):
         # Notify the rest of the application
         self.taskSelected.emit(clicked_item.task_info)
 
+    # def load_tasks_from_path(self, path: Path):
+    #     """Load tasks for the selected project and all subprojects."""
+
+    #     self.state.selected_folder = path
+    #     self.state.selected_task = None
+
+    #     self.selected_task_item = None
+    #     self._clear_tasks()
+
+    #     self.state.tasks = []
+
+    #     # Include the selected folder itself
+    #     folders = [path]
+
+    #     # Include all subproject folders recursively
+    #     folders.extend(p for p in path.rglob("*") if p.is_dir())
+
+    #     for folder in folders:
+    #         data = load_tasks(folder) or {}
+
+    #         for task_data in data.get("tasks", []):
+    #             task = TaskSerializer.from_dict(task_data)
+    #             self.state.tasks.append(task)
+    #             self.add_task_widget(task)
+
     def load_tasks_from_path(self, path: Path):
         """Load tasks for the selected project and all subprojects."""
 
@@ -93,15 +119,25 @@ class TasksView(QWidget):
         folders = [path]
 
         # Include all subproject folders recursively
-        folders.extend(p for p in path.rglob("*") if p.is_dir())
+        folders.extend(
+            p for p in path.rglob("*")
+            if p.is_dir()
+        )
 
+        # Load tasks from every folder
         for folder in folders:
             data = load_tasks(folder) or {}
 
             for task_data in data.get("tasks", []):
                 task = TaskSerializer.from_dict(task_data)
                 self.state.tasks.append(task)
-                self.add_task_widget(task)
+
+        # Sort all loaded tasks
+        self.apply_sort()
+
+        # Create widgets in sorted order
+        for task in self.state.tasks:
+            self.add_task_widget(task)
         
 
     # ------------------------------------------------------------------
@@ -169,11 +205,20 @@ class TasksView(QWidget):
         self.selected_task_item = None
         self._clear_tasks()
 
+        self.apply_sort()
         for task in self.state.tasks:
             self.add_task_widget(task)
 
     def apply_sort(self):
-        pass
+        if self.sort_mode == "deadline":
+            self.state.tasks.sort(
+                key=lambda task: (
+                    task.deadline.date()
+                    if isinstance(task.deadline, datetime)
+                    else task.deadline
+                ) if task.deadline else date.max,
+                reverse=self.sort_reverse
+            )
 
     # ------------------------------------------------------------------
     # Persistence

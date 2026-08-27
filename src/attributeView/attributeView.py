@@ -88,30 +88,6 @@ class AttributeView(QWidget):
         self.add_attach_btn.clicked.connect(self.add_attachment)
         self.remove_attach_btn.clicked.connect(self.remove_attachment)
 
-    # Called when a task is selected
-    # def load_task(self, task_info):
-    #     self.current_task = task_info
-
-    #     if not task_info:
-    #         self.clear()
-    #         return
-
-    #     self.title_edit.setText(task_info.name)
-    #     self.desc_edit.setPlainText(task_info.description)
-
-    #     if task_info.deadline:
-    #         self.deadline_edit.setDate(QDate(task_info.deadline.year,
-    #                                         task_info.deadline.month,
-    #                                         task_info.deadline.day))
-
-    #     # ----- New fields -----
-    #     self.priority_spin.setValue(task_info.basePriority or 1)
-    #     self.duration_spin.setValue(task_info.duration or 0)
-
-    #     self.attach_list.clear()
-    #     for attachment in task_info.attachments:
-    #         self.attach_list.addItem(attachment)
-
     def load_task(self, task_info):
         self.current_task = task_info
 
